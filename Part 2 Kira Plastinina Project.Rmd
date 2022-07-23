@@ -1,0 +1,524 @@
+---
+title: "Part 2 Kira Plastinina Project"
+author: "Dynasty"
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Introduction**
+
+Kira Plastinina  is a Russian brand that is sold through a defunct chain of retail stores in Russia, Ukraine, Kazakhstan, Belarus, China, Philippines, and Armenia. 
+
+## **Problem Statement**
+The brand’s Sales and Marketing team would like to understand their customer’s behavior from data that they have collected over the past year. More specifically, they would like to learn the characteristics of customer groups.
+
+### **Metrics of Success**
+
+* Find and deal with outliers, anomalies, and missing data within the data set.
+
+* Perform  uni variate and bivariate analysis. 
+
+* Perform clustering stating insights drawn from your analysis and visualizations. 
+* Provide comparisons between different approaches i.e. K-Means clustering vs Hierarchical clustering highlighting the strengths and limitations of each approach in the context of your analysis. 
+
+
+# **Data Understanding**
+
+Will load the data from the following source http://bit.ly/EcommerceCustomersDataset
+
+```{r}
+library(data.table)
+data <- fread('http://bit.ly/EcommerceCustomersDataset')
+```
+Will review the first six rows
+```{r}
+head(data)
+```
+ 
+Number of records
+```{r}
+dim(data)
+```
+
+Attributes
+```{r}
+str(data)
+```
+
+Summary Statistics
+```{r}
+summary(data)
+```
+
+
+## **Data Cleaning and Data Preparation**
+
+a. Checking for missing values
+```{r}
+library(tidyverse)
+```
+
+```{r}
+cbind(lapply(lapply(data, is.na), sum))
+```
+
+Out of the 12330 rows we only have 14 that have missing values meaning they won't have a great significance so will drop them
+```{r}
+df <- data%>% drop_na()
+df
+```
+```{r}
+cbind(lapply(lapply(df, is.na), sum))
+```
+
+we now have no null values.
+
+b. Will check for duplicates
+```{r}
+data_duplicated <- df[duplicated(df),]
+data_duplicated
+```
+
+we have 119 rows duplicate rows, we are going to drop them
+```{r}
+unique(df)
+```
+c. Will check for outliers
+```{r}
+boxplot(df$Administrative)
+boxplot(df$Administrative_Duration)
+boxplot(df$Informational)
+boxplot(df$Informational_Duration)
+boxplot(df$ProductRelated)
+boxplot(df$ProductRelated_Duration)
+boxplot(df$BounceRates)
+boxplot(df$ExitRates)
+boxplot(df$PageValues)
+```
+
+
+
+
+From the above box plot we have quite a number of outliers in the data set, however due to the details entailed in every attribute of the data these outliers are important for the project and will therefore not drop them.
+
+
+
+# **EXPLORATORY DATA ANALYSIS**
+
+### **1. Univariate Analysis**
+
+a. 
+```{r}
+hist(df$Administrative, col="blue")
+```
+
+
+The histogram above shows the distribution of visitor in the administrative  page and total time spent. We can see that most of the visitors in this page spent around 5 minutes with a sparse of the visitor spending up to 25 minutes
+
+
+
+
+```{r}
+hist(df$Informational, col="blue")
+```
+
+The histogram above shows the distribution of visitor in the Informational  page and total time spent. We can see that most of the visitors in this page spent around 5 minutes with a sparse of the visitor spending up to 10 minutes
+
+
+
+```{r}
+hist(df$ProductRelated, col="blue")
+```
+
+
+The histogram above shows the distribution of visitor in the Product Related page and total time spent. We can see that most of the visitors in this page spent around 200 minutes with a sparse of the visitor spending up to 400 minutes
+
+
+
+```{r}
+hist(df$BounceRates, col="blue")
+```
+
+The histogram  shows the percentage of visitors who enter the site from that page and then leave without triggering any other requests to the analytics server during that session
+
+```{r}
+hist(df$ExitRates, col = "blue")
+```
+
+
+
+
+
+**Let's Visualize visitor's distribution through out the year**
+```{r}
+month <- (df$Month)
+month.frequency <- table(month)
+month.frequency
+```
+```{r}
+barplot(month.frequency,
+  main="A bar chart showing month frequency",
+  xlab="Month",
+  ylab = "Frequency",
+  col=c("magenta")
+  )
+```
+
+
+
+We can see the month with most visitors was may and the least with February.
+
+
+**Revenue Frequency**
+
+```{r}
+revenue <- (df$Revenue)
+revenue.frequency <- table(revenue)
+revenue.frequency
+```
+
+
+```{r}
+barplot(revenue.frequency,
+  main="A bar chart showing Revenue frequency",
+  xlab="Revenue",
+  ylab = "Frequency",
+  col=c("magenta", "blue")
+  )
+```
+
+
+We can see that most of the visit were not revenue generating compared to those generating revenue
+
+
+**Visitor type distribution**
+
+```{r}
+visitor <- (df$VisitorType)
+visitor.frequency <- table(visitor)
+visitor.frequency
+```
+
+
+```{r}
+barplot(visitor.frequency,
+  main="A bar chart showing visitor type frequency",
+  xlab="visitor types",
+  ylab = "Frequency",
+  col=c("magenta", "blue", "red")
+  )
+```
+
+
+Returning visitors were more compared to new visitors and other being the least.
+
+
+**Week day Distribution**
+
+```{r}
+weekend <- (df$Weekend)
+weekend.frequency <- table(weekend)
+weekend.frequency
+```
+
+
+```{r}
+barplot(weekend.frequency,
+  main="A bar chart showing Weekend frequency",
+  xlab="Weekend",
+  ylab = "Frequency",
+  col=c("magenta", "blue")
+  )
+```
+
+
+
+Visits on the weekend were less compared to other days.
+
+
+**Region visitors distribution**
+
+```{r}
+library(janitor)
+```
+
+
+```{r}
+region <- (df$Region)
+region.frequency <- table(region)
+region.frequency
+```
+
+
+```{r}
+barplot(region.frequency,
+  main="A bar chart showing region distribution",
+  xlab="Region(1 = Russian, 2 = Ukraine, 3 = Kazakhstan, 4 = Belarus, 5 = China, 6 = Phillipines, 7 = Armenia, 8 = Rest os asia, 9 = Rest of globe)",
+  ylab = "Frequency",
+  col=c("magenta", "blue", "red", "orange", "brown", "#a1e9f0", "#d9b1f0", "yellow", "green")
+  )
+```
+
+
+Clearly shows most of the visitors come from Russia and the least from China.
+
+
+
+
+```{r}
+hist((df$SpecialDay),  
+main = "Histogram of Special day",
+     xlab = 'Special Day', 
+     ylab = 'Frequency',
+     col = "blue")
+```
+
+
+The above graph shows the closeness of the site visiting time to a specific special day (e.g. Mother’s Day, Valentine's Day) in which the sessions are more likely to be finalized with the transaction. when close to a special  day this value takes a nonzero value meaning most of the transaction happened when there was no special day close since the highest count is around zero. 
+
+
+
+
+
+ **Traffic Type Proportions**
+```{r}
+traffic <- (df$TrafficType)
+traffic.frequency <- table(traffic)
+traffic.frequency
+```
+
+
+```{r}
+barplot(traffic.frequency,
+  main="A bar chart showing Traffic type",
+  xlab="Traffic type",
+  ylab = "Proportions",
+  col=c("#d9b1f0")
+  )
+```
+
+
+Traffic type 2 had the highest proportion.
+
+
+
+**Operating Systems Proportion**
+
+```{r}
+os <- (df$OperatingSystems)
+os.frequency <- table(os)
+os.frequency
+```
+
+
+```{r}
+barplot(os.frequency,
+  main="A bar chart showing Operating systems",
+  xlab="Operating system",
+  ylab = "count",
+  col=c("#d9b1f0")
+  )
+```
+
+
+
+
+### **2. Bivariate Analysis**
+
+
+**Bounce rate Vs Exit Rates in respect to Revenue**
+```{r}
+ggplot(df,aes(x=df$BounceRates,y=df$ExitRates,col=df$Revenue))+geom_point(aes(color=df$Revenue))
+```
+
+
+The graph shows revenue generation in respect to Bounce and Exit rates. There is revenue generation when the rates are low but this decreases with increase in the rates.
+
+
+**Traffic Types vs Revenue**
+```{r}
+ggplot(df, aes(x = df$TrafficType, fill = df$Revenue)) + 
+  geom_bar()
+```
+
+
+The graph above shows most of the traffic wasn't generating revenue.
+
+**Visitor Type vs Revenue**
+```{r}
+ggplot(df, aes(x = df$VisitorType, fill = df$Revenue)) + 
+  geom_bar()
+```
+
+The number of visitor generating revenue were more on returning visitor compared to new visitors and other visitor types.
+
+
+
+```{r}
+ggplot(df, aes(x = df$OperatingSystems, fill = df$VisitorType)) + 
+  geom_bar()
+```
+
+
+Most of the visitors were using operating system 2 with an outlier of other visitor using operating system 8.
+
+```{r}
+ggplot(df, aes(x = df$Month, fill = df$Revenue)) + 
+  geom_bar()
+```
+
+
+```{r}
+ggplot(df, aes(x = df$Region, fill = df$Revenue)) + 
+  geom_bar()
+```
+
+
+```{r}
+ggplot(df,aes(x=df$Administrative_Duration,y=df$PageValues,col=df$Revenue))+geom_point(aes(color=df$Revenue))
+```
+
+
+The higher the page value the less the administrative duration
+
+
+
+### **3. Multivariate Analysis**
+
+```{r}
+head(df)
+```
+
+Will check for correlation among numerical attributes
+
+
+```{r}
+Monthly_statistics <- df %>% select(Month, Administrative_Duration, 
+                                    Informational_Duration, 
+                                    ProductRelated_Duration, PageValues, 
+                                    ExitRates, BounceRates) %>%
+  group_by(Month)%>%summarise_all(mean) 
+Monthly_statistics
+```
+
+* Month with highest administrative duration was October while February had the least.
+* Month with highest Informational duration was July while February had the least.
+* Month with highest Product related duration was November while February had the least.
+* Month with highest Page value was October while February had the least.
+* Month with highest Exit rates was February while October had the least.
+* Month with highest Bounce rates was February while October had the least.
+
+```{r}
+Region_statistics <- df %>% select(Region, Administrative_Duration, 
+                                    Informational_Duration, 
+                                    ProductRelated_Duration, PageValues, 
+                                    ExitRates, BounceRates) %>%
+  group_by(Region)%>%summarise_all(mean) 
+Region_statistics
+```
+
+
+
+# **Modeling**
+
+```{r}
+head(df)
+```
+
+
+## **K-MEAN Clustering**
+
+Will start by labeling our categorical attribute from categorical to numerical labels and also remove the class label (Revenue)
+```{r}
+df1 <- df[, 1:17]
+
+# Change the 'weekend' column's data type to 'factor'
+df1$Weekend <- as.factor(df$Weekend)
+
+
+library(caret)
+
+dummy <- dummyVars("~ .", "Month + OperatingSystems + Browser + Region + 
+                   TrafficType + VisitorType + Weekend", data=df1)
+encoded <- data.frame(predict(dummy, newdata = df1))
+df1 <- cbind(df1[ , 1:10], encoded)
+
+# Normalize the values 
+normal <-function(x) { (x -min(x))/(max(x)-min(x))}
+df_norm <- as.data.frame(lapply(df1, normal))
+
+# Preview the top six records
+head(df_norm)
+
+```
+
+
+```{r}
+library(dplyr)
+```
+
+
+Applying the K-means clustering algorithm with no. of centroids (k)= 4
+```{r}
+Result<- kmeans(df_norm, 2, nstart = 25) 
+
+# check the number of records in each cluster
+Result$size
+```
+```{r}
+Result$cluster
+```
+
+
+
+```{r}
+table(Result$cluster, df$Revenue)
+```
+
+
+
+
+## **Hierarchical Clustering**
+
+Scaling
+```{r}
+df <- scale(df_norm)
+head(df)
+```
+
+computing the Euclidean distance between observations, 
+
+```{r}
+d <- dist(df, method = "euclidean")
+```
+
+We then hierarchical clustering using the Ward’s method
+```{r}
+res.hc <- hclust(d, method = "ward.D2" )
+plot(res.hc, cex = 0.6, hang = -1)
+```
+
+
+
+
+
+
+```{r}
+cut <- cutree(res.hc, k = 2)
+cut
+```
+
+```{r}
+table(cut)
+```
+**Conclusion**
+Both K-mean and Hierarchical Clustering were unable to predict correctly if Revenue will be true or false. DBSCAN is not stable for this data since it has high dimensional. 
+
+**Recommendation:** Dimensional reduction is the best option to get better results
+
